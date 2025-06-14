@@ -59,10 +59,10 @@ public class SolrConnection {
     private final Map<String, List<Update>> updateQueues;
     private final Object lock = new Object();
 
-    private final int updateQueueSize = 10;
+    private final int updateQueueSize;
 
     // Maximum time (ms) without updates before we flush all the queues
-    private final long noUpdateThreshold = 20_000;
+    private final long noUpdateThreshold;
 
     // true if we deal with the sharded status collection
     private final boolean statusCollection;
@@ -74,7 +74,9 @@ public class SolrConnection {
             SolrClient updateClient,
             boolean cloud,
             String collection,
-            boolean statusCollection) {
+            boolean statusCollection,
+            int updateQueueSize,
+            long noUpdateThreshold) {
         this.client = client;
         this.updateClient = updateClient;
         this.cloud = cloud;
@@ -84,6 +86,9 @@ public class SolrConnection {
         this.updateQueues = new HashMap<>();
         this.lastUpdate = System.currentTimeMillis();
         this.executor = Executors.newSingleThreadScheduledExecutor();
+
+        this.updateQueueSize = updateQueueSize;
+        this.noUpdateThreshold = noUpdateThreshold;
 
         if (cloud) {
             // Periodically check if we should flush
@@ -147,8 +152,8 @@ public class SolrConnection {
     }
 
     /**
-     * Flush all waiting updates for this slice to the slice leader The request will fail, if the
-     * leader goes down before handling it
+     * Flush all waiting updates for this slice to the slice leader. The request will fail, if the
+     * leader goes down before handling it.
      */
     private void flushUpdates(
             Slice slice, List<Update> waitingUpdates, CloudHttp2SolrClient cloudHttp2SolrClient) {
@@ -264,11 +269,24 @@ public class SolrConnection {
 
     public static SolrConnection getConnection(Map<String, Object> stormConf, String boltType) {
         String collection =
-                ConfUtils.getString(stormConf, "solr." + boltType + ".collection", null);
-        String zkHost = ConfUtils.getString(stormConf, "solr." + boltType + ".zkhost", null);
+                ConfUtils.getString(
+                        stormConf, Constants.PARAMPREFIX + boltType + ".collection", null);
+        String zkHost =
+                ConfUtils.getString(stormConf, Constants.PARAMPREFIX + boltType + ".zkhost", null);
 
-        String solrUrl = ConfUtils.getString(stormConf, "solr." + boltType + ".url", null);
-        int queueSize = ConfUtils.getInt(stormConf, "solr." + boltType + ".queueSize", 100);
+        String solrUrl =
+                ConfUtils.getString(stormConf, Constants.PARAMPREFIX + boltType + ".url", null);
+        int queueSize =
+                ConfUtils.getInt(stormConf, Constants.PARAMPREFIX + boltType + ".queueSize", 100);
+
+        int updateQueueSize =
+                ConfUtils.getInt(
+                        stormConf, Constants.PARAMPREFIX + boltType + ".batchUpdateSize", 10);
+        long noUpdateThreshold =
+                ConfUtils.getLong(
+                        stormConf,
+                        Constants.PARAMPREFIX + boltType + ".flushAfterNoUpdatesMillis",
+                        20_000);
 
         boolean statusCollection = boltType.equals("status");
 
@@ -285,7 +303,13 @@ public class SolrConnection {
             CloudHttp2SolrClient cloudHttp2SolrClient = builder.build();
 
             return new SolrConnection(
-                    cloudHttp2SolrClient, cloudHttp2SolrClient, true, collection, statusCollection);
+                    cloudHttp2SolrClient,
+                    cloudHttp2SolrClient,
+                    true,
+                    collection,
+                    statusCollection,
+                    updateQueueSize,
+                    noUpdateThreshold);
 
         } else if (StringUtils.isNotBlank(solrUrl)) {
 
@@ -301,7 +325,9 @@ public class SolrConnection {
                     concurrentUpdateHttp2SolrClient,
                     false,
                     collection,
-                    statusCollection);
+                    statusCollection,
+                    updateQueueSize,
+                    noUpdateThreshold);
 
         } else {
             throw new RuntimeException("SolrClient should have zk or solr URL set up");
