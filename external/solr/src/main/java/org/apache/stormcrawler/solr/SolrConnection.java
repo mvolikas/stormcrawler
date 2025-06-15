@@ -113,7 +113,14 @@ public class SolrConnection {
                 if (waitingUpdates.isEmpty()) continue;
 
                 Slice slice = col.getSlice(entry.getKey());
-                flushUpdates(slice, waitingUpdates, cloudHttp2SolrClient);
+                Replica leader = slice.getLeader();
+
+                if (leader == null) {
+                    LOG.error("Could not find the leader for slice {}", slice.getName());
+                    return;
+                }
+
+                flushUpdates(leader, waitingUpdates, cloudHttp2SolrClient);
             }
         }
     }
@@ -145,8 +152,15 @@ public class SolrConnection {
                     updateQueues.computeIfAbsent(slice.getName(), k -> new ArrayList<>());
             waitingUpdates.add(update);
 
-            if (waitingUpdates.size() == updateQueueSize) {
-                flushUpdates(slice, waitingUpdates, cloudHttp2SolrClient);
+            if (waitingUpdates.size() >= updateQueueSize) {
+                Replica leader = slice.getLeader();
+
+                if (leader == null) {
+                    LOG.error("Could not find the leader for slice {}", slice.getName());
+                    return;
+                }
+
+                flushUpdates(leader, waitingUpdates, cloudHttp2SolrClient);
             }
         }
     }
@@ -156,12 +170,10 @@ public class SolrConnection {
      * leader goes down before handling it.
      */
     private void flushUpdates(
-            Slice slice, List<Update> waitingUpdates, CloudHttp2SolrClient cloudHttp2SolrClient) {
-        Replica leader = slice.getLeader();
-        if (leader == null) {
-            LOG.error("Could not find the leader for slice {}", slice.getName());
-            return;
-        }
+            Replica leader,
+            List<Update> waitingUpdates,
+            CloudHttp2SolrClient cloudHttp2SolrClient) {
+
         List<LBSolrClient.Endpoint> endpoints = new ArrayList<>();
         endpoints.add(new LBSolrClient.Endpoint(leader.getBaseUrl(), leader.getCoreName()));
 
@@ -180,6 +192,8 @@ public class SolrConnection {
         UpdateRequest updateRequest = new UpdateRequest();
         updateRequest.add(docs);
         updateRequest.deleteById(deletionIds);
+
+        List<Update> batch = new ArrayList<>(waitingUpdates);
         waitingUpdates.clear();
 
         // Get the async client
@@ -192,6 +206,11 @@ public class SolrConnection {
                         (futureResponse, throwable) -> {
                             if (throwable != null) {
                                 LOG.error("Exception caught while updating", throwable);
+
+                                // The request failed => add the batch back to the pending updates
+                                synchronized (lock) {
+                                    waitingUpdates.addAll(batch);
+                                }
                             }
                         });
     }
