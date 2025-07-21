@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  zookeeper:
+    image: zookeeper:3.9
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_STANDALONE_ENABLED: "true"
+      ZOO_4LW_COMMANDS_WHITELIST: "srvr,mntr,conf,ruok,stat"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  solr:
+    image: solr:9.8.1
+    hostname: solr
+    ports:
+      - "8983:8983"
+      - "8984:8984"
+    depends_on:
+      - zookeeper
+    environment:
+      - SOLR_HOST=localhost
+    command: >
+      bash -c '
+        mkdir -p /var/solr/{8983,8984} &&
+        solr start -c -p 8984 -s /var/solr/8984 -z zookeeper:2181 &&
+        solr start -c -p 8983 -s /var/solr/8983 -z zookeeper:2181 &&
+        tail -f /var/solr/logs/solr.log'
