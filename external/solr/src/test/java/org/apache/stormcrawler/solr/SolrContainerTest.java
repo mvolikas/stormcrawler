@@ -20,8 +20,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -31,14 +33,15 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 @Testcontainers
+@Timeout(value = 120, unit = TimeUnit.SECONDS)
 public abstract class SolrContainerTest {
     protected static ExecutorService executorService;
 
-    private final DockerImageName image = DockerImageName.parse("solr:9.8.1");
+    private static final DockerImageName image = DockerImageName.parse("solr:9.8.1");
     private static final String configsetsPath = new File("configsets").getAbsolutePath();
 
     @Container
-    GenericContainer<?> container =
+    static GenericContainer<?> container =
             new GenericContainer<>(image)
                     .withExposedPorts(8983)
                     .withCopyFileToContainer(
