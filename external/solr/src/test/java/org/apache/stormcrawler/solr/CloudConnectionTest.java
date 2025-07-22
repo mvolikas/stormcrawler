@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.stormcrawler.solr.persistence;
+package org.apache.stormcrawler.solr;
 
 import static org.junit.Assert.assertEquals;
 
@@ -22,6 +22,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.request.QueryRequest;
@@ -29,20 +31,20 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.cloud.DocCollection;
 import org.apache.solr.common.cloud.Replica;
-import org.apache.stormcrawler.solr.SolrConnection;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CloudConnectionTest extends SolrCloudContainerTest {
+class CloudConnectionTest extends SolrCloudContainerTest {
     private static final Logger LOG = LoggerFactory.getLogger(CloudConnectionTest.class);
 
-    private SolrConnection connection;
-    private CloudHttp2SolrClient client;
+    private static SolrConnection connection;
+    private static CloudHttp2SolrClient client;
 
-    @Before
-    public void setup() {
+    @BeforeAll
+    static void setup() {
         createCollection("docs", 1, 2);
 
         Map<String, Object> conf = new HashMap<>();
@@ -60,7 +62,8 @@ public class CloudConnectionTest extends SolrCloudContainerTest {
     }
 
     @Test
-    public void consistencyTest() throws InterruptedException {
+    @Timeout(value = 120, unit = TimeUnit.SECONDS)
+    void consistencyTest() throws InterruptedException {
         SolrInputDocument doc = new SolrInputDocument();
         doc.addField("url", "test");
         doc.addField("content", "test");

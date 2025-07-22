@@ -14,19 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.stormcrawler.solr.persistence;
+package org.apache.stormcrawler.solr;
 
 import java.io.File;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.MountableFile;
 
+@Testcontainers
 public abstract class SolrCloudContainerTest {
     private static final Logger LOG = LoggerFactory.getLogger(SolrCloudContainerTest.class);
 
@@ -34,16 +35,14 @@ public abstract class SolrCloudContainerTest {
     private static final WaitStrategy waitStrategy =
             Wait.forHttp("/solr/admin/cores?action=STATUS").forStatusCode(200);
 
-    @Rule public Timeout globalTimeout = Timeout.seconds(120);
-
-    @Rule
-    public ComposeContainer environment =
+    @Container
+    static ComposeContainer environment =
             new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
                     .withExposedService("solr", 8983, waitStrategy)
                     .withExposedService("zookeeper", 2181);
 
-    @Before
-    public void before() {
+    @BeforeAll
+    static void before() {
         environment
                 .getContainerByServiceName("solr")
                 .ifPresent(
@@ -54,7 +53,7 @@ public abstract class SolrCloudContainerTest {
                         });
     }
 
-    protected void createCollection(String collectionName, int shards, int replicas) {
+    protected static void createCollection(String collectionName, int shards, int replicas) {
         environment
                 .getContainerByServiceName("solr")
                 .ifPresent(
