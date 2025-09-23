@@ -27,7 +27,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.MountableFile;
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 public abstract class SolrCloudContainerTest {
     private static final Logger LOG = LoggerFactory.getLogger(SolrCloudContainerTest.class);
 

@@ -32,7 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 public abstract class SolrContainerTest {
     protected static ExecutorService executorService;
