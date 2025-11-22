@@ -32,7 +32,7 @@ jobs:
       jdk-matrix: '[ "17" ]'
       jdk-distribution-matrix: '[ "temurin" ]'
 
-      maven4-enabled: true
+      maven4-build: true
 
       ff-goal: 'verify'
       verify-goal: 'verify'
