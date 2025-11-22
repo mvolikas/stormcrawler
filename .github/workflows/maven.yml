@@ -28,35 +28,30 @@ jobs:
   rat:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Maven environment (RAT)
-        uses: s4u/setup-maven-action@v1.19.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
+          path: ~/.m2/repository
+          key: rat-maven-${{ hashFiles('**/pom.xml') }}
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: adopt
           java-version: 17
-          java-distribution: adopt
-          maven-version: 3.9.11
-
-      - name: Build with Maven (RAT profile)
+      - name: Build with Maven
         run: mvn -B --no-transfer-progress -Prat -DskipTests verify -Dskip.format.code=false
 
   build:
     needs: rat
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        java: [17]
-        # Test both Maven 3 and Maven 4
-        maven: ['3.9.11', '4.0.0-rc-5']
-        experimental: [false]
+    uses: apache/maven-gh-actions-shared/.github/workflows/maven-verify.yml@v4
 
-    steps:
-      - name: Setup Maven environment (build)
-        uses: s4u/setup-maven-action@v1.19.0
-        with:
-          java-version: ${{ matrix.java }}
-          java-distribution: adopt
-          maven-version: ${{ matrix.maven }}
+    with:
+      os-matrix: '[ "ubuntu-latest" ]'
+      jdk-matrix: '[ "17" ]'
+      jdk-distribution-matrix: '[ "temurin" ]'
 
-      - name: Build with Maven
-        run: mvn -B --no-transfer-progress package --file pom.xml -DCI_ENV=true verify
+      maven4-enabled: true
+
+      ff-goal: 'verify'
+      verify-goal: 'verify'
+      ff-site-run: false
