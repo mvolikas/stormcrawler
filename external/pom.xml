@@ -42,7 +42,7 @@ under the License.
 		<subproject>warc</subproject>
 	</subprojects>
 
-    <dependencies>
+	<dependencies>
 		<dependency>
 			<groupId>org.apache.storm</groupId>
 			<artifactId>storm-client</artifactId>

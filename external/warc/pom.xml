@@ -21,7 +21,6 @@ under the License.
 
 <project xmlns="http://maven.apache.org/POM/4.1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.1.0 https://maven.apache.org/xsd/maven-4.1.0.xsd">
 	
-
 	<parent/>
 
 	<artifactId>stormcrawler-warc</artifactId>
@@ -58,12 +57,12 @@ under the License.
 			<version>${storm-client.version}</version>
 			<exclusions>
 				<exclusion>
-				    <!-- not available with Java 9 and higher -->
+					<!-- not available with Java 9 and higher -->
 					<groupId>jdk.tools</groupId>
 					<artifactId>jdk.tools</artifactId>
 				</exclusion>
 				<exclusion>
-				    <!-- subdependency JMS can't be found -->
+					<!-- subdependency JMS can't be found -->
 					<groupId>org.apache.hive.hcatalog</groupId>
 					<artifactId>hive-webhcat-java-client</artifactId>
 				</exclusion>
