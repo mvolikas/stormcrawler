@@ -107,8 +107,4 @@ under the License.
 		</dependency>
 	</dependencies>
 
-	<subprojects>
-		<subproject>archetype</subproject>
-	</subprojects>
-
 </project>
