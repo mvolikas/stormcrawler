@@ -51,7 +51,7 @@ Unless you are running a well known web crawler, it is unlikely that its agent n
 
 This is what the configuration `http.robots.agents` allows you to do. It is a comma-separated string but can also take a list of values. By setting it alongside `http.agent.name` (which should also be the first value it contains), you are able to broaden the match rules based on the identity as well as the purpose of your crawler.
 
-=== Proxy 
+=== Proxy
 
 StormCrawler's proxy system is built on top of the link:https://github.com/apache/stormcrawler/blob/main/core/src/main/java/org/apache/stormcrawler/proxy/SCProxy.java[SCProxy] class and the link:https://github.com/apache/stormcrawler/blob/main/core/src/main/java/org/apache/stormcrawler/proxy/ProxyManager.java[ProxyManager] interface. Every proxy used in the system is formatted as a **SCProxy**. The **ProxyManager** implementations handle the management and delegation of their internal proxies. At the call of `Protocol#getProtocolOutput()`, the `ProxyManager.getProxy()` is called to retrieve a proxy for the individual request.
 
@@ -67,11 +67,11 @@ StormCrawler implements two **ProxyManager** classes by default:
 Manages a single proxy passed by the backwards compatible proxy fields in the configuration:
 
   ----
-  http.proxy.host  
-  http.proxy.port  
-  http.proxy.type  
-  http.proxy.user (optional)  
-  http.proxy.pass (optional)  
+  http.proxy.host
+  http.proxy.port
+  http.proxy.type
+  http.proxy.user (optional)
+  http.proxy.pass (optional)
   ----
 
 * link:https://github.com/apache/stormcrawler/blob/main/core/src/main/java/org/apache/stormcrawler/proxy/MultiProxyManager.java[MultiProxyManager]

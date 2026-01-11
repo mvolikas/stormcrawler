@@ -20,37 +20,37 @@ under the License.
 -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
+    <modelVersion>4.0.0</modelVersion>
 
-	<parent>
-		<groupId>org.apache.stormcrawler</groupId>
-		<artifactId>stormcrawler-external</artifactId>
-		<version>3.5.1-SNAPSHOT</version>
-		<relativePath>../pom.xml</relativePath>
-	</parent>
+    <parent>
+        <groupId>org.apache.stormcrawler</groupId>
+        <artifactId>stormcrawler-external</artifactId>
+        <version>3.5.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
 
-	<artifactId>stormcrawler-aws</artifactId>
-	<packaging>jar</packaging>
+    <artifactId>stormcrawler-aws</artifactId>
+    <packaging>jar</packaging>
 
-	<name>stormcrawler-aws</name>
-	<url>https://github.com/apache/stormcrawler/tree/master/external/aws</url>
-	<description>AWS resources for StormCrawler</description>
+    <name>stormcrawler-aws</name>
+    <url>https://github.com/apache/stormcrawler/tree/master/external/aws</url>
+    <description>AWS resources for StormCrawler</description>
 
-	<properties>
-		<aws.version>1.12.797</aws.version>
-	</properties>
+    <properties>
+        <aws.version>1.12.797</aws.version>
+    </properties>
 
-	<dependencies>
-		<dependency>
-			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-cloudsearch</artifactId>
-			<version>${aws.version}</version>
-		</dependency>
+    <dependencies>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-cloudsearch</artifactId>
+            <version>${aws.version}</version>
+        </dependency>
 
-		<dependency>
-			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>${aws.version}</version>
-		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>${aws.version}</version>
+        </dependency>
+    </dependencies>
 </project>
