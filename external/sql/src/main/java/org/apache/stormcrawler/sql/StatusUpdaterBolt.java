@@ -16,6 +16,8 @@
  */
 package org.apache.stormcrawler.sql;
 
+import static org.apache.stormcrawler.sql.SQLUtil.closeResource;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -23,6 +25,7 @@ import java.sql.Timestamp;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
@@ -52,22 +55,19 @@ public class StatusUpdaterBolt extends AbstractStatusUpdaterBolt {
     private MultiCountMetric eventCounter;
 
     private Connection connection;
-    private String tableName;
 
     private URLPartitioner partitioner;
     private int maxNumBuckets = -1;
 
     private int batchMaxSize = 1000;
-    private float batchMaxIdleMsec = 2000;
 
     private int currentBatchSize = 0;
 
-    private PreparedStatement insertPreparedStmt = null;
-
     private long lastInsertBatchTime = -1;
 
-    private String updateQuery;
-    private String insertQuery;
+    private PreparedStatement updatePreparedStmt;
+    private PreparedStatement insertPreparedStmt;
+    private ScheduledExecutorService executor;
 
     private final Map<String, List<Tuple>> waitingAck = new HashMap<>();
 
@@ -88,7 +88,8 @@ public class StatusUpdaterBolt extends AbstractStatusUpdaterBolt {
 
         this.eventCounter = context.registerMetric("counter", new MultiCountMetric(), 10);
 
-        tableName = ConfUtils.getString(stormConf, Constants.SQL_STATUS_TABLE_PARAM_NAME, "urls");
+        final String tableName =
+                ConfUtils.getString(stormConf, Constants.SQL_STATUS_TABLE_PARAM_NAME, "urls");
 
         batchMaxSize =
                 ConfUtils.getInt(stormConf, Constants.SQL_UPDATE_BATCH_SIZE_PARAM_NAME, 1000);
@@ -100,21 +101,39 @@ public class StatusUpdaterBolt extends AbstractStatusUpdaterBolt {
             throw new RuntimeException(ex);
         }
 
-        String query =
-                tableName
-                        + " (url, status, nextfetchdate, metadata, bucket, host)"
-                        + " values (?, ?, ?, ?, ?, ?)";
+        final String baseColumns =
+                """
+                                (url, status, nextfetchdate, metadata, bucket, host)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                             """;
 
-        updateQuery = "REPLACE INTO " + query;
-        insertQuery = "INSERT IGNORE INTO " + query;
+        final String updateQuery =
+                String.format(
+                        Locale.ROOT,
+                        """
+                                 REPLACE INTO %s %s
+                         """,
+                        tableName,
+                        baseColumns);
+
+        final String insertQuery =
+                String.format(
+                        Locale.ROOT,
+                        """
+                            INSERT IGNORE INTO %s %s
+        """,
+                        tableName,
+                        baseColumns);
 
         try {
+            updatePreparedStmt = connection.prepareStatement(updateQuery);
             insertPreparedStmt = connection.prepareStatement(insertQuery);
         } catch (SQLException e) {
-            LOG.error(e.getMessage(), e);
+            LOG.error("Failed to prepare statements", e);
+            throw new RuntimeException(e);
         }
 
-        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(
                 () -> {
                     try {
@@ -162,37 +181,27 @@ public class StatusUpdaterBolt extends AbstractStatusUpdaterBolt {
             partition = Math.abs(partitionKey.hashCode() % maxNumBuckets);
         }
 
-        PreparedStatement preparedStmt = this.insertPreparedStmt;
-
         // create in table if does not already exist
         if (isUpdate) {
-            preparedStmt = connection.prepareStatement(updateQuery);
-        }
+            populate(
+                    url,
+                    status,
+                    nextFetch,
+                    mdAsString,
+                    partition,
+                    partitionKey,
+                    updatePreparedStmt);
 
-        preparedStmt.setString(1, url);
-        preparedStmt.setString(2, status.toString());
-        if (nextFetch.isPresent()) {
-            final Timestamp tsp = Timestamp.from(nextFetch.get().toInstant());
-            preparedStmt.setObject(3, tsp);
-        } else {
-            // a value so large it means it will never be refetched
-            preparedStmt.setObject(3, NEVER);
-        }
-        preparedStmt.setString(4, mdAsString.toString());
-        preparedStmt.setInt(5, partition);
-        preparedStmt.setString(6, partitionKey);
-
-        // updates are not batched
-        if (isUpdate) {
-            preparedStmt.executeUpdate();
-            preparedStmt.close();
+            // updates are not batched
+            updatePreparedStmt.executeUpdate();
             eventCounter.scope("sql_updates_number").incrBy(1);
             super.ack(t, url);
             return;
         }
 
         // code below is for inserts i.e. DISCOVERED URLs
-        preparedStmt.addBatch();
+        populate(url, status, nextFetch, mdAsString, partition, partitionKey, insertPreparedStmt);
+        insertPreparedStmt.addBatch();
 
         if (lastInsertBatchTime == -1) {
             lastInsertBatchTime = System.currentTimeMillis();
@@ -210,12 +219,36 @@ public class StatusUpdaterBolt extends AbstractStatusUpdaterBolt {
         eventCounter.scope("sql_inserts_number").incrBy(1);
     }
 
+    private void populate(
+            final String url,
+            final Status status,
+            final Optional<Date> nextFetch,
+            final StringBuilder mdAsString,
+            final int partition,
+            final String partitionKey,
+            final PreparedStatement preparedStmt)
+            throws SQLException {
+        preparedStmt.setString(1, url);
+        preparedStmt.setString(2, status.toString());
+        if (nextFetch.isPresent()) {
+            final Timestamp tsp = Timestamp.from(nextFetch.get().toInstant());
+            preparedStmt.setObject(3, tsp);
+        } else {
+            // a value so large it means it will never be refetched
+            preparedStmt.setObject(3, NEVER);
+        }
+        preparedStmt.setString(4, mdAsString.toString());
+        preparedStmt.setInt(5, partition);
+        preparedStmt.setString(6, partitionKey);
+    }
+
     private synchronized void checkExecuteBatch() throws SQLException {
         if (currentBatchSize == 0) {
             return;
         }
         long now = System.currentTimeMillis();
         // check whether the insert batches need executing
+        final float batchMaxIdleMsec = 2000;
         if ((currentBatchSize == batchMaxSize)) {
             LOG.info("About to execute batch - triggered by size");
         } else if (lastInsertBatchTime + (long) batchMaxIdleMsec < System.currentTimeMillis()) {
@@ -253,17 +286,27 @@ public class StatusUpdaterBolt extends AbstractStatusUpdaterBolt {
         lastInsertBatchTime = System.currentTimeMillis();
         currentBatchSize = 0;
         waitingAck.clear();
-
-        insertPreparedStmt.close();
-        insertPreparedStmt = connection.prepareStatement(insertQuery);
     }
 
     @Override
     public void cleanup() {
-        if (connection != null)
+        closeResource(updatePreparedStmt, "update prepared statement");
+        closeResource(insertPreparedStmt, "insert prepared statement");
+        closeResource(connection, "connection");
+        closeExecutor();
+    }
+
+    private void closeExecutor() {
+        if (executor != null) {
+            executor.shutdown();
             try {
-                connection.close();
-            } catch (SQLException e) {
+                if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
             }
+        }
     }
 }
