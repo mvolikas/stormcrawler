@@ -55,7 +55,7 @@ under the License.
             <scope>provided</scope>
         </dependency>
         <dependency>
-        <groupId>org.apache.stormcrawler</groupId>
+            <groupId>org.apache.stormcrawler</groupId>
             <artifactId>stormcrawler-core</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
