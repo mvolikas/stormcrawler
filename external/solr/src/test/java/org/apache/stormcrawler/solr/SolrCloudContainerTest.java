@@ -39,7 +39,8 @@ public abstract class SolrCloudContainerTest {
     static ComposeContainer environment =
             new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
                     .withExposedService("solr", 8983, waitStrategy)
-                    .withExposedService("zookeeper", 2181);
+                    .withExposedService("zookeeper", 2181)
+                    .withLocalCompose(true);
 
     @BeforeAll
     static void before() {
